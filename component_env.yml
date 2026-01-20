@@ -1,0 +1,12 @@
+name: aml_precommit
+channels:
+  - conda-forge
+  - anaconda
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip:
+    - aml_precommit==X.X.X
+    - >-
+      --extra-index-url
+      https://pkgs.dev.azure.com/${org_name}/DAPR/_packaging/${feed_view}/pypi/simple/
