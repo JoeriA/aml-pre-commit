@@ -162,6 +162,7 @@ def check_command_arguments(
     Args:
         command: The command string to validate.
         wd: working directory of command
+        packages: dict with packag nams as keys and locations as values
 
     Returns:
         A list of error messages. Empty list if no errors.
@@ -241,6 +242,7 @@ def validate_component_command(
 
     Args:
         data: dict with yaml contents
+        packages: dict with packag nams as keys and locations as values
 
     Returns:
         List of errors
@@ -435,7 +437,7 @@ def validate_pipeline_component_match(
     return all_errors
 
 
-def main(packages: dict[str, str] | None = None) -> None:
+def check_aml(packages: dict[str, str] | None = None) -> None:
     """Main function to validate Azure ML components and pipelines.
 
     This function scans for component and pipeline YAML files, validates them
@@ -507,5 +509,9 @@ def main(packages: dict[str, str] | None = None) -> None:
     sys.exit(1 if all_errors else 0)
 
 
+def main():
+    Fire(check_aml)
+
+
 if __name__ == "__main__":
-    Fire(main)
+    main()
