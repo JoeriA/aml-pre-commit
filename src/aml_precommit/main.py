@@ -29,6 +29,7 @@ from typing import Any
 
 import yaml
 from dotenv import find_dotenv, load_dotenv
+from fire import Fire
 
 # Set up logging, change level when debugging
 logging.basicConfig(level=logging.WARNING, format="%(message)s")
@@ -151,7 +152,9 @@ def get_function_arguments(
     return all_args, required_args
 
 
-def check_command_arguments(command: str, wd: Path) -> list[str]:
+def check_command_arguments(
+    command: str, wd: Path, packages: dict[str, str] | None
+) -> list[str]:
     """Check command arguments for validity.
 
     Supports only python -m fire commands on modules (not local .py files).
@@ -195,17 +198,20 @@ def check_command_arguments(command: str, wd: Path) -> list[str]:
         else:
             # check if environment variable with path to local module is set
             head_module = module_name.split(".")[0]
-            if alt_path := os.environ.get(f"PATH_{head_module}"):
-                # create a path from module by replacing dots with slashes and add .py extension
-                module_dir = module_name.replace(".", "/") + ".py"
-                # assume src-layout of package (as used in our cookiecutter)
-                rel_path = Path(alt_path) / "src" / module_dir
-                # resolve relative path to working directory
-                module_path = Path.cwd().joinpath(rel_path).resolve()
-            else:
+            alt_path = os.environ.get(f"PATH_{head_module}")
+            # if not found, try packages argument
+            if alt_path is None and packages is not None:
+                alt_path = packages.get(head_module)
+            if alt_path is None:
                 msg = f"Module {module_name} not found, add path to local directory to .env as 'PATH_{head_module}'"
                 errors.append(msg)
                 return errors
+            # create a path from module by replacing dots with slashes and add .py extension
+            module_dir = module_name.replace(".", "/") + ".py"
+            # assume src-layout of package (as used in our cookiecutter)
+            rel_path = Path(alt_path) / "src" / module_dir
+            # resolve relative path to working directory
+            module_path = Path.cwd().joinpath(rel_path).resolve()
 
     # Get function and inspect arguments
     all_arguments, required_arguments = get_function_arguments(
@@ -228,7 +234,9 @@ def check_command_arguments(command: str, wd: Path) -> list[str]:
     return errors
 
 
-def validate_component_command(data: dict) -> list[str]:
+def validate_component_command(
+    data: dict, packages: dict[str, str] | None
+) -> list[str]:
     """Validates that all inputs in a component command exist in the inputs section.
 
     Args:
@@ -295,7 +303,9 @@ def validate_component_command(data: dict) -> list[str]:
     if unused_outputs:
         errors.append(f"Unused output definitions: {unused_outputs}")
 
-    errors += check_command_arguments(command=command, wd=data["_filepath"].parent)
+    errors += check_command_arguments(
+        command=command, wd=data["_filepath"].parent, packages=packages
+    )
 
     # Return True if no errors, False otherwise
     return errors
@@ -425,7 +435,7 @@ def validate_pipeline_component_match(
     return all_errors
 
 
-def main() -> None:
+def main(packages: dict[str, str] | None = None) -> None:
     """Main function to validate Azure ML components and pipelines.
 
     This function scans for component and pipeline YAML files, validates them
@@ -435,6 +445,9 @@ def main() -> None:
     - Component command validation
     - Pipeline input validation
     - Pipeline-component crossvalidation
+
+    Args:
+        packages: dict with packag nams as keys and locations as values
 
     Returns:
         None: Exits with status code 1 if any validation errors are found,
@@ -470,7 +483,7 @@ def main() -> None:
     logger.info("Checking component commands")
     all_errors: dict[Path, list[str]] = {}
     for data in components.values():
-        if comp_errors := validate_component_command(data=data):
+        if comp_errors := validate_component_command(data=data, packages=packages):
             all_errors[data["_filepath"]] = comp_errors
 
     logger.info("Checking pipeline inputs/outputs")
@@ -495,4 +508,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    Fire(main)
