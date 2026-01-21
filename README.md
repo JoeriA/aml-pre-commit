@@ -16,7 +16,7 @@ Add to your .pre-commit-config.yaml like
     rev: 0.1.0
     hooks:
     -   id: check-aml
-        name: check azureml pipeline and component inputs/outputs consistancy
+        name: check azureml pipeline and component inputs/outputs consistency
         pass_filenames: false
 ```
 
@@ -32,7 +32,7 @@ When a component command refers to functions of external packages, you must do a
     rev: 0.1.0
     hooks:
     -   id: check-aml
-        name: check azureml pipeline and component inputs/outputs consistancy
+        name: check azureml pipeline and component inputs/outputs consistency
         pass_filenames: false
         args: ["--packages={'PACKAGE_NAME': 'PACKAGE_LOCATION'}"]
 ```
@@ -44,7 +44,7 @@ Alternatively, you can disable the function checks with
     rev: 0.1.0
     hooks:
     -   id: check-aml
-        name: check azureml pipeline and component inputs/outputs consistancy
+        name: check azureml pipeline and component inputs/outputs consistency
         pass_filenames: false
         args: ["--disable_function_check"]
 ```

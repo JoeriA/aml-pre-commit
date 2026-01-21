@@ -1,6 +1,6 @@
 - id: check-aml
   name: Validate Azure Machine Learning files consistency
-  description: 'Validate inputs/outputs consistancy of components/pipelines'
+  description: 'Validate inputs/outputs consistency of components/pipelines'
   entry: check-aml
   language: python
   types_or: [yaml]
