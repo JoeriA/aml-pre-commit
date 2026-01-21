@@ -1,52 +1,56 @@
 # aml_precommit
 
-################
+Pre-commit hook for checking azure machine learning yaml files consistency. Will check the following and give an error if an input or output is missing or unused:
 
-**NB:** Add Azure DevOps CI/CD pipeline status badge:
-
-Pipelines > aml-pre-commit > click on three dots in upper right corner > Status badge > Branch: develop > replace this instruction with a Sample markdown.
-
-################
-
-**NB:** Add Github CI/CD pipeline status badge:
-
-[Github workflow status badge](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/monitoring-workflows/adding-a-workflow-status-badge)
-
-################
-
-
-[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
-
-Give a description of your repository here.
+- Pipelinejob 'parent' i/o consistency with pipelinejob job i/o
+- Pipelinejob job i/o consistency with component i/o
+- Component i/o consistency with component command/task arguments
+- Component command/task arguments consistency with python function arguments
 
 ## Installation
 
-Give a installation guide here, or provide one via a link. 
+Add to your .pre-commit-config.yaml like
 
-<!-- Replace the installation_guide_link to the installation guide of your repository -->
-For example:
-* Use [Installation guide](installation_guide_link) to setup your repository using this cookiecutter template.
-
-## Documentation
-
-<!-- Replace the documentation_link to the documentation of your repository -->
-You can find the documentation of this repository [on this website](documentation_link).
-
-## Examples
-
-Here you can give some examples. Here is an example to get you started:
-
-```bash
-from aml_precommit import multiply
-result = multiply(2, 3)
-print(result)
+```
+-   repo: https://github.com/JoeriA/aml-pre-commit
+    rev: 0.1.0
+    hooks:
+    -   id: check-aml
+        name: check azureml pipeline and component inputs/outputs consistancy
+        pass_filenames: false
 ```
 
-This example shows how to use the multiply functionality within the repository.
+### External packages
 
-## Resources
+When a component command refers to functions of external packages, you must do an additional setup to check this.
 
-<!-- Replace the links to the corresponding urls of your repository -->
-* [Releases](releases_link)
-* [Documentation](documentation_link)
-* [JIRA board](jira_link)
+1. First add this external package as a [git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules). Advise: add within a lib folder.
+2. Add a packages argument to the pre-commit hook call:
+
+```
+-   repo: https://github.com/JoeriA/aml-pre-commit
+    rev: 0.1.0
+    hooks:
+    -   id: check-aml
+        name: check azureml pipeline and component inputs/outputs consistancy
+        pass_filenames: false
+        args: ["--packages={'PACKAGE_NAME': 'PACKAGE_LOCATION'}"]
+```
+
+Alternatively, you can disable the function checks with
+
+```
+-   repo: https://github.com/JoeriA/aml-pre-commit
+    rev: 0.1.0
+    hooks:
+    -   id: check-aml
+        name: check azureml pipeline and component inputs/outputs consistancy
+        pass_filenames: false
+        args: ["--disable_function_check"]
+```
+
+#### Background
+
+To check consistency of the component command with a function, we must parse the function to see the function arguments.
+So we must have access to the function.
+As pre-commit runs in a separate environment, adding the package somehow via pyproject.toml (uv/poetry/pip) is very difficult.

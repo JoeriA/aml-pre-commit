@@ -197,14 +197,11 @@ def check_command_arguments(
             # referencing a path, should be found relative to component
             module_path = wd.joinpath(module_name).resolve()
         else:
-            # check if environment variable with path to local module is set
             head_module = module_name.split(".")[0]
-            alt_path = os.environ.get(f"PATH_{head_module}")
-            # if not found, try packages argument
-            if alt_path is None and packages is not None:
-                alt_path = packages.get(head_module)
+            # load package location from packages argument
+            alt_path = packages.get(head_module) if packages is not None else None
             if alt_path is None:
-                msg = f"Module {module_name} not found, add path to local directory to .env as 'PATH_{head_module}'"
+                msg = f"Module {module_name} not found, follow readme to add '{head_module}' to packages argument."
                 errors.append(msg)
                 return errors
             # create a path from module by replacing dots with slashes and add .py extension
@@ -236,13 +233,14 @@ def check_command_arguments(
 
 
 def validate_component_command(
-    data: dict, packages: dict[str, str] | None
+    data: dict, packages: dict[str, str] | None, disable_function_check: bool
 ) -> list[str]:
     """Validates that all inputs in a component command exist in the inputs section.
 
     Args:
         data: dict with yaml contents
         packages: dict with packag nams as keys and locations as values
+        disable_function_check: disable checks on consistency of component command and function arguments
 
     Returns:
         List of errors
@@ -305,9 +303,10 @@ def validate_component_command(
     if unused_outputs:
         errors.append(f"Unused output definitions: {unused_outputs}")
 
-    errors += check_command_arguments(
-        command=command, wd=data["_filepath"].parent, packages=packages
-    )
+    if not disable_function_check:
+        errors += check_command_arguments(
+            command=command, wd=data["_filepath"].parent, packages=packages
+        )
 
     # Return True if no errors, False otherwise
     return errors
@@ -437,7 +436,9 @@ def validate_pipeline_component_match(
     return all_errors
 
 
-def check_aml(packages: dict[str, str] | None = None) -> None:
+def check_aml(
+    packages: dict[str, str] | None = None, disable_function_check: bool = False
+) -> None:
     """Main function to validate Azure ML components and pipelines.
 
     This function scans for component and pipeline YAML files, validates them
@@ -449,7 +450,8 @@ def check_aml(packages: dict[str, str] | None = None) -> None:
     - Pipeline-component crossvalidation
 
     Args:
-        packages: dict with packag nams as keys and locations as values
+        packages: dict with package names as keys and locations as values
+        disable_function_check: disable checks on consistency of component command and function arguments
 
     Returns:
         None: Exits with status code 1 if any validation errors are found,
@@ -485,7 +487,9 @@ def check_aml(packages: dict[str, str] | None = None) -> None:
     logger.info("Checking component commands")
     all_errors: dict[Path, list[str]] = {}
     for data in components.values():
-        if comp_errors := validate_component_command(data=data, packages=packages):
+        if comp_errors := validate_component_command(
+            data=data, packages=packages, disable_function_check=disable_function_check
+        ):
             all_errors[data["_filepath"]] = comp_errors
 
     logger.info("Checking pipeline inputs/outputs")
