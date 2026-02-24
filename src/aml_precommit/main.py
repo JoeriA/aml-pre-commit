@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import sys
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -29,11 +30,11 @@ from dotenv import find_dotenv, load_dotenv
 from fire import Fire
 
 # Set up logging, change level when debugging
-logging.basicConfig(level=logging.WARNING, format="%(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(name=__name__)
 
 # Load .env
-dotenv = find_dotenv(raise_error_if_not_found=False)
+dotenv = find_dotenv(raise_error_if_not_found=False, usecwd=True)
 load_dotenv(dotenv, override=True)
 
 
@@ -149,9 +150,41 @@ def get_function_arguments(
     return all_args, required_args
 
 
+@cache
+def log_module_path(msg):
+    """Logs a message about module path. Wrapped in cache to only print one message per module.
+
+    Args:
+        msg: The message to be logged containing module path information.
+
+    Returns:
+        None.
+    """
+    logger.info(msg)
+
+
 def find_module_path(
     module_name: str, wd: Path, packages: dict[str, str] | None
 ) -> Path:
+    """Finds the path to a Python module based on various search locations.
+
+    Searches for a module in the following order:
+    1. If module name contains ".py", treats it as direct file path relative to working directory
+    2. Checks if package is specified in packages dictionary (CLI argument)
+    3. Checks environment variable (AMLPC_{PACKAGE_NAME})
+    4. Falls back to active Python environment
+
+    Args:
+        module_name: Name of the module to find, can be a direct .py file or dotted package name
+        wd: Working directory Path object for resolving relative paths
+        packages: Optional dictionary mapping package names to alternative paths (from CLI)
+
+    Returns:
+        Path object pointing to the found module file
+
+    Raises:
+        ValueError: If module cannot be found in any of the search locations
+    """
     # explicit .py files (usually a .py file within the component directory)
     if ".py" in module_name:
         # referencing a path, should be found relative to component
@@ -168,6 +201,7 @@ def find_module_path(
         # path set in cli argument
         alt_path = Path(packages[package_name])
         source = "args"
+        log_module_path(f"Reading {package_name} from {alt_path} (set in args)")
     else:
         env_var_name = f"AMLPC_{package_name.upper()}"
         env_path = os.environ.get(env_var_name)
@@ -175,6 +209,7 @@ def find_module_path(
             # path set in environment variable
             alt_path = Path(env_path)
             source = "env"
+            log_module_path(f"Reading {package_name} from {alt_path} (set in env)")
     if alt_path is not None:
         # path was found in cli arguments or environment variable
         # create a path from module by replacing dots with slashes and add .py extension
@@ -187,11 +222,12 @@ def find_module_path(
             msg = f"Module path of {package_name} is set to '{alt_path}' in {source} but cannot be found."
             raise ValueError(msg)
         return module_path
-
     # finally, try finding package in active python environment
     try:
         spec = importlib.util.find_spec(module_name)
         module_path = Path(spec.origin)
+        log_module_path(f"Reading {package_name} from python environment")
+        return module_path
     except ModuleNotFoundError:
         msg = f"Module {package_name} cannot be found in active python environment. Add to environment or add alternative path via cli argument or environment variable."
         raise ValueError(msg)
