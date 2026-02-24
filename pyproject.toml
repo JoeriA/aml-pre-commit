@@ -1,6 +1,6 @@
 [project]
 name = "aml_precommit"
-version = "0.0.1"
+version = "0.1.0"
 description = "A short description of the package."
 authors = [{ name = "Team AA", email = "TEAMAdvancedAnalyticsBCO@rotterdam.nl" }]
 requires-python = ">=3.11,<4.0"
