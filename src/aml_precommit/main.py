@@ -163,12 +163,12 @@ def find_module_path(
 
     # module refers to a python package
     package_name = module_name.split(".")[0]
+    alt_path = None
     if packages is not None and package_name in packages:
         # path set in cli argument
         alt_path = Path(packages[package_name])
         source = "args"
-    # If not found in packages, check environment variable
-    if alt_path is None:
+    else:
         env_var_name = f"AMLPC_{package_name.upper()}"
         env_path = os.environ.get(env_var_name)
         if env_path is not None:
@@ -187,6 +187,7 @@ def find_module_path(
             msg = f"Module path of {package_name} is set to '{alt_path}' in {source} but cannot be found."
             raise ValueError(msg)
         return module_path
+
     # finally, try finding package in active python environment
     try:
         spec = importlib.util.find_spec(module_name)
