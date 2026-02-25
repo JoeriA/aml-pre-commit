@@ -22,10 +22,28 @@ Add to your .pre-commit-config.yaml like
 
 ### External packages
 
-When a component command refers to functions of external packages, you must do an additional setup to check this.
+When a component command refers to functions of external packages, you must do an additional setup to check this. Use one of the following options.
 
-1. First add this external package as a [git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules). Advise: add within a lib folder.
-2. Add a packages argument to the pre-commit hook call:
+The order in which the script searches for the correct python file:
+
+1. If it ends with a .py extension, it is assumed this is a local file relative to the component yaml file.
+2. The packages pre-commit hook argument is checked and used if passed.
+3. If it exists, the environment variable is used.
+4. Try finding the module in the active python environment.
+
+See what works for your project and CI/CD setup.
+Using submodules + hook argument is probably easiest both locally and in remote CI/CD, but submodules may not work due to github/devops policies.
+Alternatively, add the module to the python environment to use in a remote CI/CD and overwrite the path in .env for local development (so you can refer to the development version of the package locally).
+
+#### Pass local path
+
+You can pass local paths for external packages.
+Advised is to use [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so others using the same repository have the same file structure.
+Advise: add within a lib folder.
+
+Then, you can either pass the path via environment variables (for example within a .env file within your repository), such as `AMLPC_{PACKAGE_NAME}=lib/{REPO_NAME}`.
+
+Or, pass as pre-commit hook argument:
 
 ```
 -   repo: https://github.com/JoeriA/aml-pre-commit
@@ -34,9 +52,27 @@ When a component command refers to functions of external packages, you must do a
     -   id: check-aml
         name: check azureml pipeline and component inputs/outputs consistency
         pass_filenames: false
-        args: ["--packages={'PACKAGE_NAME': 'PACKAGE_LOCATION'}"]
+        args: ["--packages={'{PACKAGE_NAME}': 'lib/{REPO_NAME}'}"]
 ```
 
+#### Add module to pre-commit environment
+
+You can also add additional dependencies to the pre-commit environment with:
+
+```
+-   repo: https://github.com/JoeriA/aml-pre-commit
+    rev: 0.1.0
+    hooks:
+    -   id: check-aml
+        name: check azureml pipeline and component inputs/outputs consistency
+        pass_filenames: false
+        additional_dependencies:
+          - {PACKAGE_NAME}==1.2.3
+```
+
+You may want to use [prek](https://github.com/j178/prek) so you can use uv to manage dependencies (for example adding [additional index](https://docs.astral.sh/uv/reference/environment/#uv_index), possibly with username/password)
+
+#### Disable
 Alternatively, you can disable the function checks with
 
 ```

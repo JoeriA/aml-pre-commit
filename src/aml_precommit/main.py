@@ -9,9 +9,6 @@ Will print error for each missing or unused element and stop with exit code 1 if
 
 You can run this file on your own or include it as pre-commit hook (python must be available in the environment).
 Next steps:
-- put in separate repo
-- make detection of components/pipelines more foolproof
-- rearrange a bit so files are only read once
 - function validate_pipeline_component_match is too complex, spit in separate functions
 - improve handling of optional inputs?
 - unittests!!
@@ -24,6 +21,7 @@ import logging
 import os
 import re
 import sys
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -32,11 +30,11 @@ from dotenv import find_dotenv, load_dotenv
 from fire import Fire
 
 # Set up logging, change level when debugging
-logging.basicConfig(level=logging.WARNING, format="%(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(name=__name__)
 
 # Load .env
-dotenv = find_dotenv(raise_error_if_not_found=False)
+dotenv = find_dotenv(raise_error_if_not_found=False, usecwd=True)
 load_dotenv(dotenv, override=True)
 
 
@@ -152,6 +150,89 @@ def get_function_arguments(
     return all_args, required_args
 
 
+@cache
+def log_module_path(msg):
+    """Logs a message about module path. Wrapped in cache to only print one message per module.
+
+    Args:
+        msg: The message to be logged containing module path information.
+
+    Returns:
+        None.
+    """
+    logger.info(msg)
+
+
+def find_module_path(
+    module_name: str, wd: Path, packages: dict[str, str] | None
+) -> Path:
+    """Finds the path to a Python module based on various search locations.
+
+    Searches for a module in the following order:
+    1. If module name contains ".py", treats it as direct file path relative to working directory
+    2. Checks if package is specified in packages dictionary (CLI argument)
+    3. Checks environment variable (AMLPC_{PACKAGE_NAME})
+    4. Falls back to active Python environment
+
+    Args:
+        module_name: Name of the module to find, can be a direct .py file or dotted package name
+        wd: Working directory Path object for resolving relative paths
+        packages: Optional dictionary mapping package names to alternative paths (from CLI)
+
+    Returns:
+        Path object pointing to the found module file
+
+    Raises:
+        ValueError: If module cannot be found in any of the search locations
+    """
+    # explicit .py files (usually a .py file within the component directory)
+    if ".py" in module_name:
+        # referencing a path, should be found relative to component
+        module_path = wd.joinpath(module_name).resolve()
+        if not module_path.exists():
+            msg = f"Module {module_name} refers to {module_path} but does not exist"
+            raise ValueError(msg)
+        return module_path
+
+    # module refers to a python package
+    package_name = module_name.split(".")[0]
+    alt_path = None
+    if packages is not None and package_name in packages:
+        # path set in cli argument
+        alt_path = Path(packages[package_name])
+        source = "args"
+        log_module_path(f"Reading {package_name} from {alt_path} (set in args)")
+    else:
+        env_var_name = f"AMLPC_{package_name.upper()}"
+        env_path = os.environ.get(env_var_name)
+        if env_path is not None:
+            # path set in environment variable
+            alt_path = Path(env_path)
+            source = "env"
+            log_module_path(f"Reading {package_name} from {alt_path} (set in env)")
+    if alt_path is not None:
+        # path was found in cli arguments or environment variable
+        # create a path from module by replacing dots with slashes and add .py extension
+        module_dir = module_name.replace(".", "/") + ".py"
+        # assume src-layout of package (as used in our cookiecutter)
+        rel_path = Path(alt_path) / "src" / module_dir
+        # resolve relative path to working directory
+        module_path = Path.cwd().joinpath(rel_path).resolve()
+        if not module_path.exists():
+            msg = f"Module path of {package_name} is set to '{alt_path}' in {source} but cannot be found."
+            raise ValueError(msg)
+        return module_path
+    # finally, try finding package in active python environment
+    try:
+        spec = importlib.util.find_spec(module_name)
+        module_path = Path(spec.origin)
+        log_module_path(f"Reading {package_name} from python environment")
+        return module_path
+    except ModuleNotFoundError:
+        msg = f"Module {package_name} cannot be found in active python environment. Add to environment or add alternative path via cli argument or environment variable."
+        raise ValueError(msg)
+
+
 def check_command_arguments(
     command: str, wd: Path, packages: dict[str, str] | None
 ) -> list[str]:
@@ -185,31 +266,7 @@ def check_command_arguments(
     module_name = match.group(1)
     function_name = match.group(2)
 
-    # find the module
-    try:
-        # try finding the module based on name, works if it is installed in the current environment
-        spec = importlib.util.find_spec(module_name)
-        module_path = spec.origin
-    except ModuleNotFoundError:
-        module_path = None
-    if module_path is None:
-        if ".py" in module_name:
-            # referencing a path, should be found relative to component
-            module_path = wd.joinpath(module_name).resolve()
-        else:
-            head_module = module_name.split(".")[0]
-            # load package location from packages argument
-            alt_path = packages.get(head_module) if packages is not None else None
-            if alt_path is None:
-                msg = f"Module {module_name} not found, follow readme to add '{head_module}' to packages argument."
-                errors.append(msg)
-                return errors
-            # create a path from module by replacing dots with slashes and add .py extension
-            module_dir = module_name.replace(".", "/") + ".py"
-            # assume src-layout of package (as used in our cookiecutter)
-            rel_path = Path(alt_path) / "src" / module_dir
-            # resolve relative path to working directory
-            module_path = Path.cwd().joinpath(rel_path).resolve()
+    module_path = find_module_path(module_name=module_name, wd=wd, packages=packages)
 
     # Get function and inspect arguments
     all_arguments, required_arguments = get_function_arguments(

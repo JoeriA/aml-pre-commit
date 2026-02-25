@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+# this parent taskfile does not contain tasks but imports them from the child taskfile
+# copy this taskfile to your package/project repo and start using it!
+
+version: '3'
+
+# you could overwrite UV_INSTALL_DIR, CONDA_ENV_DIR and/or UV_VENV_DIR, shouldn't be necessary
+dotenv: ['.env']
+
+vars:
+  PYTHON_VERSION: 3.11
+  # use conda for python environment (will use uv venv otherwise). Must be true when using poetry instead of uv!
+  USE_CONDA: false
+  # use poetry or uv for dependency management
+  USE_POETRY: false
+  # name of environment
+  PROJECT_NAME: aml_precommit
+
+includes:
+  aa:
+    taskfile: https://github.com/JoeriA/aa_taskfile.git//taskfile.yml?ref=main
+    # taskfile: ../aa_taskfile/taskfile.yml  # you could also refer to the cloned repo
+    flatten: true
+
+# for setting up the repo (environment, precommit), run `task setup_repo`

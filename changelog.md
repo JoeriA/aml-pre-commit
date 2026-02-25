@@ -22,16 +22,23 @@ straightforward as possible. Fill this in as repo gets updates with added, chang
 ## Template (copy paste template below):
 ---
 
-## [#.#.#] - yyyy-mm-dd
+## [0.2.0] - 2026-02-25
 
 ### **Release Highlights**
-Here we would have the update steps for 0.0.1 for people to follow.
+Improved module path control
 
-### **Added**
-- (fill in)
-### **Changed**
-- (fill in)
-### **Fixed**
-- (fill in)
-### **Removed**
-- (fill in)
+### Added
+- Option to pass module path with environment variable
+
+### Changed
+- First check cli argument, then environment variable, then active python environment
+
+## [0.1.0] - 2026-01-20
+
+### **Release Highlights**
+Extra release to match incorrect tag
+
+## [0.0.1] - 2026-01-20
+
+### **Release Highlights**
+First release
