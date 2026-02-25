@@ -22,7 +22,7 @@ straightforward as possible. Fill this in as repo gets updates with added, chang
 ## Template (copy paste template below):
 ---
 
-## [0.1.0] - 2026-02-24
+## [0.2.0] - 2026-02-25
 
 ### **Release Highlights**
 Improved module path control
@@ -32,6 +32,11 @@ Improved module path control
 
 ### Changed
 - First check cli argument, then environment variable, then active python environment
+
+## [0.1.0] - 2026-01-20
+
+### **Release Highlights**
+Extra release to match incorrect tag
 
 ## [0.0.1] - 2026-01-20
 
